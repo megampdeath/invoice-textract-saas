@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+/* pdf.js: ensure the rendered canvas fills the overlay container exactly */
+.react-pdf__Page {
+  margin: 0;
+}
+.react-pdf__Page canvas {
+  display: block;
+}
