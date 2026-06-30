@@ -21,16 +21,24 @@ export interface DuplicateCheckInput {
 export async function findDuplicate(
   input: DuplicateCheckInput
 ): Promise<string | null> {
+  // Normalize: trim + case-insensitive matching (Postgres mode: insensitive).
+  const vn = input.vendorName?.trim() || null;
+  const inum = input.invoiceNumber?.trim() || null;
+  const idate = input.invoiceDate?.trim() || null;
+
   const or: Array<Record<string, unknown>> = [];
   if (input.contentHash) or.push({ contentHash: input.contentHash });
-  if (input.vendorName && input.invoiceNumber) {
-    or.push({ vendorName: input.vendorName, invoiceNumber: input.invoiceNumber });
-  }
-  if (input.vendorName && input.total != null && input.invoiceDate) {
+  if (vn && inum) {
     or.push({
-      vendorName: input.vendorName,
+      vendorName: { equals: vn, mode: "insensitive" },
+      invoiceNumber: { equals: inum, mode: "insensitive" },
+    });
+  }
+  if (vn && input.total != null && idate) {
+    or.push({
+      vendorName: { equals: vn, mode: "insensitive" },
       total: input.total,
-      invoiceDate: input.invoiceDate,
+      invoiceDate: { equals: idate, mode: "insensitive" },
     });
   }
   if (or.length === 0) return null;

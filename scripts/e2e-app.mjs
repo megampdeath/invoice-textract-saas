@@ -105,6 +105,7 @@ async function main() {
   const inv = upData.invoice;
   console.log("Upload:", upRes.status, "| id:", inv.id);
   console.log("  vendor:", inv.vendorName, "| invoice#:", inv.invoiceNumber, "| total:", inv.total, "| lines:", inv.lineItems?.length);
+  console.log("  duplicate:", inv.duplicate, "| duplicateOfId:", inv.duplicateOfId);
 
   // 4) Detail page HTML
   const det = await jget(`${BASE}/dashboard/invoices/${inv.id}`);
@@ -121,6 +122,20 @@ async function main() {
   const ct = fileRes.headers.get("content-type");
   const buf = Buffer.from(await fileRes.arrayBuffer());
   console.log("File endpoint:", fileRes.status, "| type:", ct, "| bytes:", buf.length);
+
+  // 6) XLSX exports
+  const x1 = await jget(`${BASE}/api/invoices/${inv.id}/export?format=xlsx`);
+  const x1buf = Buffer.from(await x1.arrayBuffer());
+  console.log("Per-invoice XLSX:", x1.status, "| type:", x1.headers.get("content-type"), "| bytes:", x1buf.length, "| isZip:", x1buf.length > 2 && x1buf[0] === 0x50 && x1buf[1] === 0x4b);
+
+  const x2 = await jget(`${BASE}/api/invoices/export`);
+  const x2buf = Buffer.from(await x2.arrayBuffer());
+  console.log("Org XLSX:", x2.status, "| type:", x2.headers.get("content-type"), "| bytes:", x2buf.length, "| isZip:", x2buf.length > 2 && x2buf[0] === 0x50 && x2buf[1] === 0x4b);
+
+  // 7) Dashboard page
+  const dash = await jget(`${BASE}/dashboard`);
+  const dhtml = await dash.text();
+  console.log("Dashboard:", dash.status, "| has 'Total spend':", dhtml.includes("Total spend"), "| has 'Monthly spend':", dhtml.includes("Monthly spend"), "| has 'Top suppliers':", dhtml.includes("Top suppliers"));
 }
 
 main().catch((e) => {

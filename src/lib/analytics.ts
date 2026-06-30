@@ -8,103 +8,105 @@ export interface AnalyticsInvoice {
   status: string;
 }
 
+export interface CurrencyTotal {
+  currency: string;
+  total: number;
+  count: number;
+}
+
 export interface DashboardData {
   kpis: {
-    totalSpend: number;
-    invoiceCount: number;
-    avgInvoice: number;
-    thisMonth: number;
-    lastMonth: number;
-    momChangePct: number | null;
+    invoiceCount: number; // unique (non-duplicate) completed invoices, any currency
+    totalByCurrency: CurrencyTotal[]; // spend per currency, sorted by total desc
+    primaryCurrency: string | null; // currency with the largest total
+    primaryTotal: number;
+    thisMonthCount: number;
+    lastMonthCount: number;
+    momChangePct: number | null; // month-over-month by volume
     duplicateCount: number;
-    currency: string | null;
   };
-  monthly: { month: string; spend: number }[];
-  topSuppliers: { name: string; spend: number }[];
+  monthly: { month: string; count: number }[];
+  topSuppliers: { name: string; count: number }[];
 }
 
 function monthFloor(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
-function parseMonth(inv: AnalyticsInvoice): Date {
-  const s = inv.invoiceDate;
-  if (s) {
-    const d = new Date(s);
-    if (!isNaN(d.getTime())) return monthFloor(d);
-  }
-  return monthFloor(inv.createdAt);
-}
-
-function modeCurrency(rows: AnalyticsInvoice[]): string | null {
-  const counts = new Map<string, number>();
-  for (const r of rows) {
-    if (r.total == null) continue;
-    const c = r.currency || "USD";
-    counts.set(c, (counts.get(c) ?? 0) + 1);
-  }
-  let best: string | null = null;
-  let bestN = -1;
-  for (const [c, n] of counts) {
-    if (n > bestN) {
-      best = c;
-      bestN = n;
-    }
-  }
-  return best;
-}
-
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function buildDashboardData(all: AnalyticsInvoice[]): DashboardData {
   const completed = all.filter((i) => i.status === "completed");
-  const currency = modeCurrency(completed);
-  const spendRows = completed.filter(
-    (i) => i.total != null && (i.currency === currency || i.currency == null)
-  );
+  // Unique invoices only — duplicates are the same invoice, not new volume/spend.
+  const unique = completed.filter((i) => !i.duplicate);
 
-  const totalSpend = spendRows.reduce((s, i) => s + (i.total ?? 0), 0);
-  const invoiceCount = completed.length;
-  const avgInvoice = invoiceCount > 0 ? totalSpend / invoiceCount : 0;
+  const invoiceCount = unique.length;
   const duplicateCount = all.filter((i) => i.duplicate).length;
 
+  // Spend grouped per currency (no cross-currency summing).
+  const byCur = new Map<string, { total: number; count: number }>();
+  for (const i of unique) {
+    if (i.total == null) continue;
+    const c = i.currency || "USD";
+    const e = byCur.get(c) ?? { total: 0, count: 0 };
+    e.total += i.total;
+    e.count += 1;
+    byCur.set(c, e);
+  }
+  const totalByCurrency: CurrencyTotal[] = [...byCur.entries()]
+    .map(([currency, v]) => ({ currency, ...v }))
+    .sort((a, b) => b.total - a.total);
+  const primary = totalByCurrency[0];
+  const primaryCurrency = primary?.currency ?? null;
+  const primaryTotal = primary?.total ?? 0;
+
   const now = new Date();
-  const thisMonthFloor = monthFloor(now);
-  const lastMonthFloor = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-
-  const thisMonth = spendRows
-    .filter((i) => parseMonth(i).getTime() === thisMonthFloor.getTime())
-    .reduce((s, i) => s + (i.total ?? 0), 0);
-  const lastMonth = spendRows
-    .filter((i) => parseMonth(i).getTime() === lastMonthFloor.getTime())
-    .reduce((s, i) => s + (i.total ?? 0), 0);
+  const thisM = monthFloor(now);
+  const lastM = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const thisMonthCount = unique.filter(
+    (i) => monthFloor(i.createdAt).getTime() === thisM.getTime()
+  ).length;
+  const lastMonthCount = unique.filter(
+    (i) => monthFloor(i.createdAt).getTime() === lastM.getTime()
+  ).length;
   const momChangePct =
-    lastMonth > 0 ? ((thisMonth - lastMonth) / lastMonth) * 100 : null;
+    lastMonthCount > 0 ? ((thisMonthCount - lastMonthCount) / lastMonthCount) * 100 : null;
 
-  // last 12 months series
-  const monthly: { month: string; spend: number }[] = [];
+  // Monthly volume (count is currency-agnostic → no invoice is hidden).
+  const monthly: { month: string; count: number }[] = [];
   for (let i = 11; i >= 0; i--) {
     const m = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const spend = spendRows
-      .filter((r) => parseMonth(r).getTime() === m.getTime())
-      .reduce((s, r) => s + (r.total ?? 0), 0);
-    monthly.push({ month: `${MONTH_NAMES[m.getMonth()]} ${String(m.getFullYear()).slice(2)}`, spend });
+    const count = unique.filter(
+      (r) => monthFloor(r.createdAt).getTime() === m.getTime()
+    ).length;
+    monthly.push({
+      month: `${MONTH_NAMES[m.getMonth()]} ${String(m.getFullYear()).slice(2)}`,
+      count,
+    });
   }
 
-  // top suppliers
-  const bySupplier = new Map<string, number>();
-  for (const r of spendRows) {
-    const name = (r.vendorName || "Unknown").trim();
-    if (!name) continue;
-    bySupplier.set(name, (bySupplier.get(name) ?? 0) + (r.total ?? 0));
+  // Top suppliers by volume (currency-agnostic).
+  const bySup = new Map<string, number>();
+  for (const r of unique) {
+    const name = (r.vendorName || "Unknown").trim() || "Unknown";
+    bySup.set(name, (bySup.get(name) ?? 0) + 1);
   }
-  const topSuppliers = [...bySupplier.entries()]
-    .map(([name, spend]) => ({ name, spend }))
-    .sort((a, b) => b.spend - a.spend)
+  const topSuppliers = [...bySup.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
   return {
-    kpis: { totalSpend, invoiceCount, avgInvoice, thisMonth, lastMonth, momChangePct, duplicateCount, currency },
+    kpis: {
+      invoiceCount,
+      totalByCurrency,
+      primaryCurrency,
+      primaryTotal,
+      thisMonthCount,
+      lastMonthCount,
+      momChangePct,
+      duplicateCount,
+    },
     monthly,
     topSuppliers,
   };
