@@ -74,8 +74,8 @@ export async function extractDocumentWithQueries(
 
   const res = await client.send(command);
   const blocks: Block[] = (res.Blocks ?? []) as unknown as Block[];
-  const pageCount =
-    (res.Blocks?.find((b) => b.BlockType === "PAGE")?.Page as number) ?? 1;
+  // Number of pages = count of PAGE blocks (one per page).
+  const pageCount = blocks.filter((b) => b.BlockType === "PAGE").length || 1;
 
   // Index QUERY_RESULT blocks by id so we can resolve each query's answer.
   const resultById = new Map<string, Block>();

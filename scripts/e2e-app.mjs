@@ -147,7 +147,7 @@ async function main() {
   // 7) Dashboard page
   const dash = await jget(`${BASE}/dashboard`);
   const dhtml = await dash.text();
-  console.log("Dashboard:", dash.status, "| has 'Total spend':", dhtml.includes("Total spend"), "| has 'Monthly spend':", dhtml.includes("Monthly spend"), "| has 'Top suppliers':", dhtml.includes("Top suppliers"));
+  console.log("Dashboard:", dash.status, "| has 'Total spend':", dhtml.includes("Total spend"), "| has 'Monthly volume':", dhtml.includes("Monthly volume"), "| has 'Top suppliers by volume':", dhtml.includes("Top suppliers by volume"));
 }
 
 main().catch((e) => {

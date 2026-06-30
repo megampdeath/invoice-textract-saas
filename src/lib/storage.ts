@@ -67,9 +67,3 @@ export async function readFileBytes(file: StoredFile): Promise<Uint8Array> {
   const buf = await fs.readFile(path.join(LOCAL_ROOT, file.key));
   return new Uint8Array(buf);
 }
-
-/** Build a web-relative URL for dashboard display/download (local only). */
-export function localFileUrl(file: StoredFile): string | null {
-  if (file.storage !== "local") return null;
-  return `/uploads/${file.key}`;
-}
