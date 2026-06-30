@@ -111,7 +111,7 @@ export default async function InvoiceDetailPage({
       </div>
 
       <ReviewActions
-        invoiceId={invoice.id}
+        apiPath={`/api/invoices/${invoice.id}/review`}
         reviewStatus={invoice.reviewStatus}
         reviewReason={invoice.reviewReason}
       />

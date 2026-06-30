@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-interface Annotation {
+export interface Annotation {
   field: string;
   label: string;
-  group: "vendor" | "id" | "dates" | "money" | "line";
+  group: "vendor" | "id" | "dates" | "money" | "line" | "field";
   page: number;
   left: number;
   top: number;
@@ -23,6 +23,7 @@ const COLORS: Record<
   dates: { bg: "rgba(14,165,233,0.16)", border: "rgba(14,165,233,0.9)", dot: "#0ea5e9" },
   money: { bg: "rgba(245,158,11,0.20)", border: "rgba(245,158,11,0.95)", dot: "#f59e0b" },
   line: { bg: "rgba(16,185,129,0.16)", border: "rgba(16,185,129,0.9)", dot: "#10b981" },
+  field: { bg: "rgba(79,70,229,0.16)", border: "rgba(79,70,229,0.9)", dot: "#4f46e5" },
 };
 
 const GROUP_LABEL: Record<Annotation["group"], string> = {
@@ -31,6 +32,7 @@ const GROUP_LABEL: Record<Annotation["group"], string> = {
   dates: "Dates",
   money: "Amounts",
   line: "Line items",
+  field: "Fields",
 };
 
 type Indexed = { a: Annotation; idx: number };

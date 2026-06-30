@@ -4,11 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export function ReviewActions({
-  invoiceId,
+  apiPath,
   reviewStatus,
   reviewReason,
 }: {
-  invoiceId: string;
+  apiPath: string;
   reviewStatus: string;
   reviewReason: string | null;
 }) {
@@ -20,7 +20,7 @@ export function ReviewActions({
   async function act(status: "approved" | "needs_review") {
     setBusy(true);
     setErr(null);
-    const res = await fetch(`/api/invoices/${invoiceId}/review`, {
+    const res = await fetch(apiPath, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),

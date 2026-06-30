@@ -21,9 +21,11 @@ model Organization {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  users    User[]
-  invoices Invoice[]
-  usage    UsageRecord[]
+  users         User[]
+  invoices      Invoice[]
+  usage         UsageRecord[]
+  documentTypes DocumentType[]
+  documents     Document[]
 }
 
 model User {
@@ -37,8 +39,10 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  invoices Invoice[]
-  reviewedInvoices Invoice[] @relation("InvoiceReviewer")
+  invoices           Invoice[]
+  reviewedInvoices   Invoice[] @relation("InvoiceReviewer")
+  documents          Document[] @relation("DocumentUploader")
+  reviewedDocuments  Document[] @relation("DocumentReviewer")
 }
 
 model Invoice {
@@ -135,4 +139,104 @@ model UsageRecord {
   createdAt DateTime @default(now())
 
   @@index([organizationId, createdAt])
+}
+
+// ---------- Generic document extraction (multi-sector) ----------
+
+model DocumentType {
+  id              String   @id @default(cuid())
+  organizationId  String?  // null = shared preset available to all orgs
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name            String   // e.g. "Aerospace Part Certificate"
+  description     String?
+  extractionMethod String  @default("queries") // queries | expense
+  slug            String?  // stable identifier for presets
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  fields    DocumentField[]
+  documents Document[]
+
+  @@index([organizationId])
+}
+
+model DocumentField {
+  id            String   @id @default(cuid())
+  documentTypeId String
+  documentType  DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+  key           String   // e.g. "part_number"
+  label         String   // e.g. "Part number"
+  method        String   @default("query") // query | form | table | regex
+  question      String?  // natural-language question for method=query
+  fieldType     String   @default("string") // string | number | date
+  required      Boolean  @default(false)
+  sortOrder     Int      @default(0)
+
+  @@index([documentTypeId])
+}
+
+model Document {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedById   String
+  uploadedBy     User     @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+  documentTypeId String
+  documentType   DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+
+  // File metadata
+  fileName  String
+  mimeType  String
+  sizeBytes Int
+  storageKey String
+  storage   String  @default("db") // db | s3
+
+  // Processing
+  status       String  @default("pending") // pending | processing | completed | failed
+  errorMessage String?
+  pageCount    Int?
+  confidence   Float?
+  rawJson      String? // full Textract response for audit / re-parsing
+
+  // Review workflow
+  reviewedById String?
+  reviewedBy   User?    @relation("DocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewStatus String  @default("needs_review") // needs_review | approved
+  reviewReason String?
+  reviewedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  values DocumentValue[]
+  file   DocumentFile?
+
+  @@index([organizationId, createdAt])
+}
+
+// Original document bytes when storage = "db" (Postgres bytea).
+model DocumentFile {
+  documentId String   @id
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  bytes      Bytes
+  createdAt  DateTime @default(now())
+}
+
+model DocumentValue {
+  id         String  @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  fieldKey   String  // matches DocumentField.key
+  label      String
+  value      String?
+  confidence Float?
+  page       Int     @default(1)
+  left       Float?
+  top        Float?
+  width      Float?
+  height     Float?
+  sortOrder  Int     @default(0)
+
+  @@index([documentId])
 }
