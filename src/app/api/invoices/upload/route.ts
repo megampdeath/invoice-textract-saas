@@ -6,6 +6,7 @@ import { assertWithinQuota, estimateCostCents } from "@/lib/usage";
 import { storeFile, isAllowedMime } from "@/lib/storage";
 import { analyzeInvoiceDocument, INVOICE_STATUS } from "@/lib/textract";
 import { findDuplicate } from "@/lib/duplicates";
+import { computeReviewState, REVIEW_STATUS } from "@/lib/review";
 
 export const runtime = "nodejs";
 
@@ -135,12 +136,19 @@ export async function POST(req: Request) {
       invoiceDate: extracted.invoiceDate,
       excludeId: invoice.id,
     });
-    if (dupOfId) {
-      await prisma.invoice.update({
-        where: { id: invoice.id },
-        data: { duplicate: true, duplicateOfId: dupOfId },
-      });
-    }
+    const isDup = Boolean(dupOfId);
+
+    // Review / approval state: auto-approve high-confidence complete non-duplicates.
+    const review = computeReviewState(extracted, isDup);
+    await prisma.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        ...(isDup ? { duplicate: true, duplicateOfId: dupOfId } : {}),
+        reviewStatus: review.reviewStatus,
+        reviewReason: review.reviewReason,
+        ...(review.reviewStatus === REVIEW_STATUS.APPROVED ? { reviewedAt: new Date() } : {}),
+      },
+    });
 
     const result = await prisma.invoice.findUnique({
       where: { id: invoice.id },
@@ -152,7 +160,12 @@ export async function POST(req: Request) {
       err instanceof Error ? err.message : "Textract processing failed";
     await prisma.invoice.update({
       where: { id: invoice.id },
-      data: { status: INVOICE_STATUS.FAILED, errorMessage: message },
+      data: {
+        status: INVOICE_STATUS.FAILED,
+        errorMessage: message,
+        reviewStatus: REVIEW_STATUS.NEEDS_REVIEW,
+        reviewReason: "Extraction failed",
+      },
     });
     return NextResponse.json(
       { error: "Extraction failed", detail: message, invoiceId: invoice.id },

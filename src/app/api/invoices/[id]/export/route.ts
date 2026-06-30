@@ -28,6 +28,18 @@ export async function GET(
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   }
 
+  // Enforce the review workflow: exports are blocked until an invoice is approved.
+  if (invoice.reviewStatus !== "approved") {
+    return NextResponse.json(
+      {
+        error: "Invoice must be approved before exporting",
+        reviewStatus: invoice.reviewStatus,
+        reviewReason: invoice.reviewReason,
+      },
+      { status: 409 }
+    );
+  }
+
   const safeName = (invoice.fileName || "invoice").replace(/\.[a-z0-9]+$/i, "");
 
   if (format === "xlsx") {

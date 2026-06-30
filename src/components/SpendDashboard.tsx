@@ -106,10 +106,10 @@ export function SpendDashboard({ data }: { data: DashboardData }) {
           tone="emerald"
         />
         <Kpi
-          label="Duplicates"
-          value={String(k.duplicateCount)}
-          sub={k.duplicateCount ? "review flagged" : "none detected"}
-          tone={k.duplicateCount ? "amber" : "slate"}
+          label="Needs review"
+          value={String(k.needsReview)}
+          sub={k.needsReview ? `${k.duplicateCount} duplicates` : "all approved"}
+          tone={k.needsReview ? "amber" : "slate"}
         />
       </div>
 

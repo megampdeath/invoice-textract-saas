@@ -23,6 +23,7 @@ export interface InvoiceExport {
   total?: number | null;
   paymentTerms?: string | null;
   duplicate: boolean;
+  reviewStatus?: string | null;
   createdAt: Date;
   lineItems: LineItem[];
 }
@@ -50,6 +51,7 @@ export async function buildInvoiceXlsx(inv: InvoiceExport): Promise<Buffer> {
     ["Total", inv.total],
     ["Payment terms", inv.paymentTerms],
     ["Status", inv.status],
+    ["Approved", inv.reviewStatus === "approved" ? "yes" : "no"],
     ["Duplicate", inv.duplicate ? "YES" : "no"],
     ["File", inv.fileName],
   ];
@@ -86,7 +88,7 @@ export async function buildOrgInvoicesXlsx(invoices: InvoiceExport[]): Promise<B
   const s = wb.addWorksheet("Invoices");
   s.addRow([
     "Vendor", "Invoice #", "Invoice date", "Due date", "Currency",
-    "Subtotal", "Tax", "Total", "Status", "Duplicate", "File", "Uploaded",
+    "Subtotal", "Tax", "Total", "Status", "Approved", "Duplicate", "File", "Uploaded",
   ]);
   for (const inv of invoices) {
     s.addRow([
@@ -99,13 +101,14 @@ export async function buildOrgInvoicesXlsx(invoices: InvoiceExport[]): Promise<B
       inv.tax ?? "",
       inv.total ?? "",
       inv.status,
+      inv.reviewStatus === "approved" ? "yes" : "no",
       inv.duplicate ? "YES" : "",
       inv.fileName,
       inv.createdAt.toISOString(),
     ]);
   }
   s.columns = [{ width: 24 }, { width: 16 }, { width: 14 }, { width: 14 }, { width: 8 },
-    { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 10 }, { width: 30 }, { width: 22 }];
+    { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 10 }, { width: 10 }, { width: 30 }, { width: 22 }];
   for (let r = 2; r <= s.rowCount; r++) {
     [6, 7, 8].forEach((c) => (s.getRow(r).getCell(c).numFmt = money));
   }

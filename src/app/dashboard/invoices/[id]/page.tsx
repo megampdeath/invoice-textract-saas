@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { buildAnnotations } from "@/lib/textract";
 import { InvoiceViewer } from "@/components/InvoiceViewer";
+import { ReviewActions } from "@/components/ReviewActions";
 
 function money(value: number | null | undefined, currency: string | null) {
   if (value === null || value === undefined) return "—";
@@ -83,20 +84,37 @@ export default async function InvoiceDetailPage({
           )}
         </div>
         <div className="flex gap-2">
-          <a
-            href={`/api/invoices/${invoice.id}/export?format=xlsx`}
-            className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-          >
-            Export XLSX
-          </a>
-          <a
-            href={`/api/invoices/${invoice.id}/export`}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            CSV
-          </a>
+          {invoice.reviewStatus === "approved" ? (
+            <>
+              <a
+                href={`/api/invoices/${invoice.id}/export?format=xlsx`}
+                className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+              >
+                Export XLSX
+              </a>
+              <a
+                href={`/api/invoices/${invoice.id}/export`}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                CSV
+              </a>
+            </>
+          ) : (
+            <span
+              className="cursor-not-allowed rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-400"
+              title="Approve this invoice to enable export"
+            >
+              Export locked — approve first
+            </span>
+          )}
         </div>
       </div>
+
+      <ReviewActions
+        invoiceId={invoice.id}
+        reviewStatus={invoice.reviewStatus}
+        reviewReason={invoice.reviewReason}
+      />
 
       <InvoiceViewer
         fileUrl={fileUrl}

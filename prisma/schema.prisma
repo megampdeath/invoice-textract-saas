@@ -38,6 +38,7 @@ model User {
   updatedAt      DateTime @updatedAt
 
   invoices Invoice[]
+  reviewedInvoices Invoice[] @relation("InvoiceReviewer")
 }
 
 model Invoice {
@@ -79,6 +80,13 @@ model Invoice {
   contentHash   String?  // sha256 of original file bytes
   duplicate     Boolean  @default(false)
   duplicateOfId String?  // id of the invoice this is a suspected duplicate of
+
+  // Review / approval workflow
+  reviewedById String?    // who approved (null = system auto-approve)
+  reviewedBy   User?      @relation("InvoiceReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewStatus String  @default("needs_review") // needs_review | approved
+  reviewReason String?    // why it needs review (duplicate / low confidence / missing fields)
+  reviewedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

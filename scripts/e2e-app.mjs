@@ -106,6 +106,18 @@ async function main() {
   console.log("Upload:", upRes.status, "| id:", inv.id);
   console.log("  vendor:", inv.vendorName, "| invoice#:", inv.invoiceNumber, "| total:", inv.total, "| lines:", inv.lineItems?.length);
   console.log("  duplicate:", inv.duplicate, "| duplicateOfId:", inv.duplicateOfId);
+  console.log("  reviewStatus:", inv.reviewStatus, "| reviewReason:", inv.reviewReason);
+
+  // Approve if needed (exports are blocked until approved).
+  if (inv.reviewStatus !== "approved") {
+    const ar = await jpost(`${BASE}/api/invoices/${inv.id}/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "approved" }),
+    });
+    const ad = await ar.json();
+    console.log("Approve:", ar.status, "->", ad.invoice?.reviewStatus);
+  }
 
   // 4) Detail page HTML
   const det = await jget(`${BASE}/dashboard/invoices/${inv.id}`);

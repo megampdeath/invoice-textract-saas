@@ -6,6 +6,7 @@ export interface AnalyticsInvoice {
   createdAt: Date;
   duplicate: boolean;
   status: string;
+  reviewStatus: string;
 }
 
 export interface CurrencyTotal {
@@ -23,6 +24,7 @@ export interface DashboardData {
     thisMonthCount: number;
     lastMonthCount: number;
     momChangePct: number | null; // month-over-month by volume
+    needsReview: number;
     duplicateCount: number;
   };
   monthly: { month: string; count: number }[];
@@ -42,6 +44,7 @@ export function buildDashboardData(all: AnalyticsInvoice[]): DashboardData {
 
   const invoiceCount = unique.length;
   const duplicateCount = all.filter((i) => i.duplicate).length;
+  const needsReview = all.filter((i) => i.reviewStatus === "needs_review").length;
 
   // Spend grouped per currency (no cross-currency summing).
   const byCur = new Map<string, { total: number; count: number }>();
@@ -105,6 +108,7 @@ export function buildDashboardData(all: AnalyticsInvoice[]): DashboardData {
       thisMonthCount,
       lastMonthCount,
       momChangePct,
+      needsReview,
       duplicateCount,
     },
     monthly,
