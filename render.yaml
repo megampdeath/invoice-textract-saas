@@ -3,8 +3,8 @@ services:
     name: invoice-textract-saas
     runtime: node
     plan: free
-    buildCommand: npx prisma generate && npm run db:deploy && npm run build
-    startCommand: npm start
+    buildCommand: npm run prisma:generate && npm run build
+    startCommand: npm run db:deploy && npm start
     healthCheckPath: /api/auth/csrf
     envVars:
       - key: NEXTAUTH_SECRET

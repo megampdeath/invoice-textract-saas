@@ -165,8 +165,8 @@ To use S3 instead:
 2. In Render: **New → Web Service**, connect the repo. A `render.yaml` is
    included; alternatively configure manually:
    - **Runtime:** Node
-   - **Build Command:** `npx prisma generate && npm run db:deploy && npm run build`
-   - **Start Command:** `npm start`
+   - **Build Command:** `npm run prisma:generate && npm run build`
+   - **Start Command:** `npm run db:deploy && npm start`
    - **Plan:** Free
 3. Set environment variables (Environment tab):
    `NEXTAUTH_SECRET`, `NEXTAUTH_URL` (your Render URL, e.g.
