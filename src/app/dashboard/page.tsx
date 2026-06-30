@@ -2,7 +2,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { monthlyUsageCount } from "@/lib/usage";
+import { buildDashboardData } from "@/lib/analytics";
 import { UploadForm } from "@/components/UploadForm";
+import { SpendDashboard } from "@/components/SpendDashboard";
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -22,6 +24,14 @@ function statusBadge(status: string) {
   );
 }
 
+function dupBadge() {
+  return (
+    <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+      duplicate
+    </span>
+  );
+}
+
 function money(value: number | null, currency: string | null) {
   if (value === null || value === undefined) return "—";
   const symbol =
@@ -34,12 +44,24 @@ function money(value: number | null, currency: string | null) {
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [invoices, used, org] = await Promise.all([
+  const [invoices, analyticsRows, used, org] = await Promise.all([
     prisma.invoice.findMany({
       where: { organizationId: user.organizationId },
       orderBy: { createdAt: "desc" },
       take: 50,
       include: { _count: { select: { lineItems: true } } },
+    }),
+    prisma.invoice.findMany({
+      where: { organizationId: user.organizationId },
+      select: {
+        vendorName: true,
+        total: true,
+        currency: true,
+        invoiceDate: true,
+        createdAt: true,
+        duplicate: true,
+        status: true,
+      },
     }),
     monthlyUsageCount(user.organizationId),
     prisma.organization.findUnique({
@@ -49,6 +71,7 @@ export default async function DashboardPage() {
   ]);
 
   const limit = org?.monthlyLimit ?? 0;
+  const dashboard = buildDashboardData(analyticsRows);
 
   return (
     <div className="space-y-6">
@@ -59,7 +82,15 @@ export default async function DashboardPage() {
             {org?.plan ?? "free"} plan · {used} / {limit} processed this month
           </p>
         </div>
+        <a
+          href="/api/invoices/export"
+          className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Export all (XLSX)
+        </a>
       </div>
+
+      <SpendDashboard data={dashboard} />
 
       <UploadForm />
 
@@ -93,6 +124,7 @@ export default async function DashboardPage() {
                   >
                     {inv.vendorName || inv.fileName}
                   </Link>
+                  {inv.duplicate && dupBadge()}
                 </td>
                 <td className="px-4 py-3 text-slate-600">
                   {inv.invoiceNumber || "—"}

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireApiUser } from "@/lib/session";
 import { assertWithinQuota, estimateCostCents } from "@/lib/usage";
 import { storeFile, isAllowedMime } from "@/lib/storage";
 import { analyzeInvoiceDocument, INVOICE_STATUS } from "@/lib/textract";
+import { findDuplicate } from "@/lib/duplicates";
 
 export const runtime = "nodejs";
 
@@ -47,6 +49,7 @@ export async function POST(req: Request) {
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
+  const contentHash = createHash("sha256").update(bytes).digest("hex");
 
   // Storage backend: S3 if a bucket is configured, otherwise Postgres bytea
   // (stored with the invoice record below).
@@ -72,6 +75,7 @@ export async function POST(req: Request) {
       sizeBytes: file.size,
       storage,
       storageKey,
+      contentHash,
       status: INVOICE_STATUS.PROCESSING,
       ...(storage === "db" ? { file: { create: { bytes: Buffer.from(bytes) } } } : {}),
     },
@@ -120,6 +124,23 @@ export async function POST(req: Request) {
         },
       });
     });
+
+    // Duplicate detection (after extraction so we can match on vendor/total/date).
+    const dupOfId = await findDuplicate({
+      organizationId: user.organizationId,
+      contentHash,
+      vendorName: extracted.vendorName,
+      invoiceNumber: extracted.invoiceNumber,
+      total: extracted.total,
+      invoiceDate: extracted.invoiceDate,
+      excludeId: invoice.id,
+    });
+    if (dupOfId) {
+      await prisma.invoice.update({
+        where: { id: invoice.id },
+        data: { duplicate: true, duplicateOfId: dupOfId },
+      });
+    }
 
     const result = await prisma.invoice.findUnique({
       where: { id: invoice.id },

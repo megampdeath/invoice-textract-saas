@@ -62,15 +62,38 @@ export default async function InvoiceDetailPage({
           </Link>
           <h1 className="mt-1 text-xl font-bold text-slate-900">
             {invoice.vendorName || invoice.fileName}
+            {invoice.duplicate && (
+              <span className="ml-3 rounded-full bg-amber-100 px-2 py-0.5 align-middle text-xs font-medium text-amber-700">
+                suspected duplicate
+              </span>
+            )}
           </h1>
           <p className="text-sm text-slate-500">{invoice.fileName}</p>
+          {invoice.duplicate && invoice.duplicateOfId && (
+            <p className="mt-1 text-xs text-amber-700">
+              This looks like a duplicate of{" "}
+              <Link
+                href={`/dashboard/invoices/${invoice.duplicateOfId}`}
+                className="font-medium text-brand hover:underline"
+              >
+                the original invoice
+              </Link>
+              .
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
+          <a
+            href={`/api/invoices/${invoice.id}/export?format=xlsx`}
+            className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+          >
+            Export XLSX
+          </a>
           <a
             href={`/api/invoices/${invoice.id}/export`}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            Export CSV
+            CSV
           </a>
         </div>
       </div>
