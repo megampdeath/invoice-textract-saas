@@ -25,6 +25,9 @@ yarn-error.log*
 .env
 .env*.local
 
+# secrets export (live credentials — never commit)
+/secrets.md
+
 # prisma
 /prisma/migrations/dev.db
 /prisma/migrations/dev.db-journal
